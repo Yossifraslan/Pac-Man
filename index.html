@@ -1,11 +1,330 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>PAC-MAN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- SCREEN 1: MAIN MENU -->
+    <div class="screen active" id="menuScreen">
+      <div class="logo-row">
+        <svg
+          class="logo-pac"
+          viewBox="0 0 60 60"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle cx="30" cy="30" r="28" fill="#ffe600" />
+          <polygon points="30,30 58,18 58,42" fill="#05050a" />
+          <circle cx="36" cy="14" r="4" fill="#05050a" />
+        </svg>
+        <h1 class="logo">PAC-MAN</h1>
+      </div>
+
+      <p class="subtitle">NEON ARCADE EDITION</p>
+
+      <div class="hs-box">
+        <span class="hs-label">HIGH SCORE</span>
+        <span class="hs-value" id="hsDisplay">0</span>
+      </div>
+
+      <nav class="menu-nav">
+        <button class="menu-btn primary" id="startBtn">START GAME</button>
+        <button class="menu-btn" id="levelsBtn">SELECT LEVEL</button>
+        <button class="menu-btn" id="howtoBtn">HOW TO PLAY</button>
+        <button class="menu-btn" id="soundToggleBtn">SOUND: ON</button>
+      </nav>
+
+      <div class="menu-ghosts">
+        <svg viewBox="0 0 40 48" width="38">
+          <use href="#ghost-shape" style="--gc: #ff4d4d" />
+        </svg>
+        <svg viewBox="0 0 40 48" width="38">
+          <use href="#ghost-shape" style="--gc: #ff8fd6" />
+        </svg>
+        <svg viewBox="0 0 40 48" width="38">
+          <use href="#ghost-shape" style="--gc: #00e5ff" />
+        </svg>
+        <svg viewBox="0 0 40 48" width="38">
+          <use href="#ghost-shape" style="--gc: #ffa500" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: LEVEL SELECT -->
+    <div class="screen" id="levelScreen">
+      <h2 class="logo" style="font-size: 1.4rem">SELECT LEVEL</h2>
+      <p class="subtitle">Complete a level to unlock the next</p>
+      <div class="level-grid" id="levelGrid"></div>
+      <button class="menu-btn back-btn" id="levelBackBtn">← BACK</button>
+    </div>
+
+    <!-- SCREEN 3: HOW TO PLAY -->
+    <div class="screen" id="howtoScreen">
+      <h2 class="logo" style="font-size: 1.4rem">HOW TO PLAY</h2>
+
+      <div class="howto-grid">
+        <section class="howto-card">
+          <h3>CONTROLS</h3>
+          <div class="key-group">
+            <div class="key-row"><kbd>W</kbd></div>
+            <div class="key-row"><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+            <p class="key-or">or</p>
+            <div class="key-row"><kbd class="arrow">↑</kbd></div>
+            <div class="key-row">
+              <kbd class="arrow">←</kbd>
+              <kbd class="arrow">↓</kbd>
+              <kbd class="arrow">→</kbd>
+            </div>
+            <p class="key-note"><kbd>P</kbd> to pause</p>
+            <p class="key-note" style="color: #555; margin-top: 8px">
+              Mobile: D-pad below the game
+            </p>
+          </div>
+        </section>
+
+        <section class="howto-card">
+          <h3>WHAT TO EAT</h3>
+          <div class="collect-row">
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <circle cx="12" cy="12" r="4" fill="#fff" />
+            </svg>
+            <div>
+              <strong>Small Dot</strong>
+              <span class="pts">10 points</span>
+            </div>
+          </div>
+          <div class="collect-row">
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <defs>
+                <filter id="pg">
+                  <feGaussianBlur stdDeviation="2" result="b" />
+                  <feMerge>
+                    <feMergeNode in="b" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <circle cx="12" cy="12" r="8" fill="#fff" filter="url(#pg)" />
+            </svg>
+            <div>
+              <strong>Power Pellet</strong>
+              <span class="pts">50 pts + ghosts go blue!</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="howto-card">
+          <h3>THE GHOSTS</h3>
+          <div class="ghost-row">
+            <svg viewBox="0 0 40 48" width="30">
+              <use href="#ghost-shape" style="--gc: #ff4d4d" />
+            </svg>
+            <div>
+              <strong style="color: #ff4d4d">BLINKY</strong
+              ><span>Chases you directly</span>
+            </div>
+          </div>
+          <div class="ghost-row">
+            <svg viewBox="0 0 40 48" width="30">
+              <use href="#ghost-shape" style="--gc: #ff8fd6" />
+            </svg>
+            <div>
+              <strong style="color: #ff8fd6">PINKY</strong
+              ><span>Cuts you off from ahead</span>
+            </div>
+          </div>
+          <div class="ghost-row">
+            <svg viewBox="0 0 40 48" width="30">
+              <use href="#ghost-shape" style="--gc: #00e5ff" />
+            </svg>
+            <div>
+              <strong style="color: #00e5ff">INKY</strong
+              ><span>Predicts your next move</span>
+            </div>
+          </div>
+          <div class="ghost-row">
+            <svg viewBox="0 0 40 48" width="30">
+              <use href="#ghost-shape" style="--gc: #ffa500" />
+            </svg>
+            <div>
+              <strong style="color: #ffa500">CLYDE</strong
+              ><span>Roams randomly</span>
+            </div>
+          </div>
+          <div class="ghost-row">
+            <svg viewBox="0 0 40 48" width="30">
+              <use href="#ghost-scared" />
+            </svg>
+            <div>
+              <strong style="color: #4488ff">SCARED</strong
+              ><span>Eat for +200 points!</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="howto-card">
+          <h3>POWER-UPS</h3>
+          <ul class="pu-list">
+            <li>
+              <span class="pu-icon" style="color: #00ff00">⚡</span>
+              <div>
+                <strong>Speed Boost</strong><span>60% faster for 5s</span>
+              </div>
+            </li>
+            <li>
+              <span class="pu-icon" style="color: #9b59b6">☆</span>
+              <div>
+                <strong>Slow Ghosts</strong><span>Half speed for 5s</span>
+              </div>
+            </li>
+            <li>
+              <span class="pu-icon" style="color: #00ffae">◎</span>
+              <div><strong>Shield</strong><span>Block one hit</span></div>
+            </li>
+            <li>
+              <span class="pu-icon" style="color: #ff4d4d">♥</span>
+              <div><strong>Extra Life</strong><span>+1 life</span></div>
+            </li>
+            <li>
+              <span class="pu-icon" style="color: #ffd700">2×</span>
+              <div>
+                <strong>Double Points</strong><span>×2 score for 10s</span>
+              </div>
+            </li>
+            <li>
+              <span class="pu-icon" style="color: #00bfff">❄</span>
+              <div><strong>Freeze</strong><span>Ghosts frozen 3s</span></div>
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <button class="menu-btn back-btn" id="howtoBackBtn">← BACK</button>
+    </div>
+
+    <!-- SCREEN 4: GAME (canvas wired in Devlog 2) -->
+    <div class="screen" id="gameScreen">
+      <div id="hud">
+        <div class="hud-item">
+          <span class="hud-label">SCORE</span>
+          <span class="hud-value" id="scoreDisplay">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">LEVEL</span>
+          <span class="hud-value" id="levelDisplay">1</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">LIVES</span>
+          <span class="hud-value" id="livesDisplay"></span>
+        </div>
+        <button id="pauseBtn">⏸ PAUSE</button>
+      </div>
+      <div style="position: relative; width: 100%">
+        <canvas id="gameCanvas"></canvas>
+        <div id="overlayMsg"></div>
+      </div>
+      <div id="touchControls">
+        <button class="tc-up" data-dir="up">
+          <svg viewBox="0 0 24 24" width="22" fill="currentColor">
+            <path d="M12 4l-8 8h16z" />
+          </svg>
+        </button>
+        <button class="tc-left" data-dir="left">
+          <svg viewBox="0 0 24 24" width="22" fill="currentColor">
+            <path d="M4 12l8-8v16z" />
+          </svg>
+        </button>
+        <button class="tc-right" data-dir="right">
+          <svg viewBox="0 0 24 24" width="22" fill="currentColor">
+            <path d="M20 12l-8-8v16z" />
+          </svg>
+        </button>
+        <button class="tc-down" data-dir="down">
+          <svg viewBox="0 0 24 24" width="22" fill="currentColor">
+            <path d="M12 20l8-8H4z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- SCREEN 5: GAME OVER -->
+    <div class="screen" id="gameOverScreen">
+      <svg
+        viewBox="0 0 40 48"
+        width="60"
+        style="margin: 30px auto 0; display: block"
+      >
+        <use href="#ghost-scared" />
+      </svg>
+      <h2
+        class="logo"
+        style="
+          font-size: 1.8rem;
+          color: #ff2e9a;
+          text-shadow: 0 0 12px #ff2e9a;
+          margin-top: 14px;
+        "
+      >
+        GAME OVER
+      </h2>
+      <p class="gameover-label">FINAL SCORE</p>
+      <p id="finalScore">0</p>
+      <p id="newHsMsg" style="display: none">★ NEW HIGH SCORE ★</p>
+      <button class="menu-btn primary" id="retryBtn">PLAY AGAIN</button>
+      <button class="menu-btn" id="menuBtn">MAIN MENU</button>
+    </div>
+
+    <!-- Shared SVG defs — referenced anywhere with <use href="#id"> -->
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      style="position: absolute; width: 0; height: 0; overflow: hidden"
+    >
+      <defs>
+        <g id="ghost-shape">
+          <path
+            d="M2,24 A18,18 0 0,1 38,24 L38,46 L31,40 L24,46 L17,40 L10,46 L3,40 L2,46 Z"
+            fill="var(--gc,#ff4d4d)"
+          />
+          <circle cx="13" cy="22" r="7" fill="white" />
+          <circle cx="27" cy="22" r="7" fill="white" />
+          <circle cx="15" cy="24" r="4" fill="#00008b" />
+          <circle cx="29" cy="24" r="4" fill="#00008b" />
+          <circle cx="16" cy="22" r="1.5" fill="white" />
+          <circle cx="30" cy="22" r="1.5" fill="white" />
+        </g>
+        <g id="ghost-scared">
+          <path
+            d="M2,24 A18,18 0 0,1 38,24 L38,46 L31,40 L24,46 L17,40 L10,46 L3,40 L2,46 Z"
+            fill="#1a1acc"
+          />
+          <circle cx="13" cy="22" r="5" fill="white" />
+          <circle cx="27" cy="22" r="5" fill="white" />
+          <circle cx="13" cy="20" r="3" fill="#1a1acc" />
+          <circle cx="27" cy="20" r="3" fill="#1a1acc" />
+          <polyline
+            points="8,36 12,32 16,36 20,32 24,36 28,32 32,36"
+            stroke="white"
+            stroke-width="2.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+        </g>
+      </defs>
+    </svg>
+
+    <footer>PAC-MAN NEON ARCADE &nbsp;·&nbsp; HTML5 Canvas + ES Modules</footer>
+    <script type="module" src="js/main.js"></script>
+  </body>
 </html>
+
