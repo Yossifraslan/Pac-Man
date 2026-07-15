@@ -568,3 +568,18 @@ footer {
   margin: 28px 0 16px;
   text-align: center;
 }
+
+#gameScreen {
+  padding: 0;
+}
+
+canvas {
+  display: block;
+  width: auto;
+  height: calc(100vh - 60px);
+  max-width: 100%;
+  background: #000;
+  border: 2px solid #1a1aff;
+  box-shadow: 0 0 30px rgba(0, 0, 200, 0.5);
+  image-rendering: pixelated;
+}
