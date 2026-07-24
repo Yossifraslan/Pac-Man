@@ -1,77 +1,124 @@
 export class Player {
   constructor(maze, tileSize) {
-    this.tileSize = tileSize;
+    this.ts = tileSize;
+    this.x = maze.playerStart.x * tileSize;
+    this.y = maze.playerStart.y * tileSize;
     this.gridX = maze.playerStart.x;
     this.gridY = maze.playerStart.y;
-    this.pixelX = this.gridX * tileSize;
-    this.pixelY = this.gridY * tileSize;
 
-    this.dir = null;
-    this.nextDir = null;
-    this.speed = 2;
+    this.velX = 0;
+    this.velY = 0;
+    this.queuedVelX = 0;
+    this.queuedVelY = 0;
 
-    this.mouthAngle = 0.1;
-    this.mouthDelta = 0.12;
+    this.mouth = 0.1;
+    this.mouthDir = 1;
 
     this.shield = false;
     this.speedBoostTimer = 0;
     this.doublePointTimer = 0;
-    this.freezeActive = false;
+
+    // keep pixelX/pixelY working for collision in main.js
+    this.pixelX = this.x;
+    this.pixelY = this.y;
+  }
+
+  get dir() {
+    if (this.velX > 0) return "right";
+    if (this.velX < 0) return "left";
+    if (this.velY < 0) return "up";
+    if (this.velY > 0) return "down";
+    return null;
   }
 
   setNextDir(dir) {
-    this.nextDir = dir;
+    const s = 2;
+    if (dir === "up") {
+      this.queuedVelX = 0;
+      this.queuedVelY = -s;
+    }
+    if (dir === "down") {
+      this.queuedVelX = 0;
+      this.queuedVelY = s;
+    }
+    if (dir === "left") {
+      this.queuedVelX = -s;
+      this.queuedVelY = 0;
+    }
+    if (dir === "right") {
+      this.queuedVelX = s;
+      this.queuedVelY = 0;
+    }
   }
 
   isAligned() {
-    return (
-      Math.round(this.pixelX) % this.tileSize === 0 &&
-      Math.round(this.pixelY) % this.tileSize === 0
-    );
+    return this.x % this.ts === 0 && this.y % this.ts === 0;
   }
 
-  _canMove(maze, dir) {
-    const ts = this.tileSize;
-    let tx = Math.round(this.pixelX / ts);
-    let ty = Math.round(this.pixelY / ts);
-    if (dir === "up") ty--;
-    if (dir === "down") ty++;
-    if (dir === "left") tx--;
-    if (dir === "right") tx++;
-    return !maze.isWall(maze, tx, ty);
+  // Only call when isAligned — col/row are integers
+  _tileOpen(maze, col, row) {
+    if (col < 0 || col >= maze.width) return true; // tunnel
+    if (row < 0 || row >= maze.height) return false;
+    const cell = maze.grid[row][col];
+    return cell !== 0 && cell !== 2 && cell !== undefined;
+  }
+
+  _canGoVel(maze, vx, vy) {
+    const col = this.x / this.ts;
+    const row = this.y / this.ts;
+    const nc = col + (vx > 0 ? 1 : vx < 0 ? -1 : 0);
+    const nr = row + (vy > 0 ? 1 : vy < 0 ? -1 : 0);
+    return this._tileOpen(maze, nc, nr);
   }
 
   update(maze) {
-    const ts = this.tileSize;
+    const spd = 2; // must divide tileSize (20) evenly
 
+    // ── Direction decisions — only when exactly on a tile ─────────────
     if (this.isAligned()) {
-      this.gridX = Math.round(this.pixelX / ts);
-      this.gridY = Math.round(this.pixelY / ts);
+      this.gridX = this.x / this.ts;
+      this.gridY = this.y / this.ts;
 
-      if (this.nextDir && this._canMove(maze, this.nextDir)) {
-        this.dir = this.nextDir;
+      // Try queued direction
+      if (
+        (this.queuedVelX !== 0 || this.queuedVelY !== 0) &&
+        this._canGoVel(maze, this.queuedVelX, this.queuedVelY)
+      ) {
+        this.velX = this.queuedVelX;
+        this.velY = this.queuedVelY;
       }
-      if (this.dir && !this._canMove(maze, this.dir)) {
-        this.dir = null;
+
+      // Stop if current direction is now blocked
+      if (
+        (this.velX !== 0 || this.velY !== 0) &&
+        !this._canGoVel(maze, this.velX, this.velY)
+      ) {
+        this.velX = 0;
+        this.velY = 0;
       }
     }
 
-    const speed = this.speedBoostTimer > 0 ? this.speed * 1.6 : this.speed;
-
-    if (this.dir === "up") this.pixelY -= speed;
-    if (this.dir === "down") this.pixelY += speed;
-    if (this.dir === "left") this.pixelX -= speed;
-    if (this.dir === "right") this.pixelX += speed;
+    // ── Movement — no wall check mid-tile ─────────────────────────────
+    if (this.velX !== 0 || this.velY !== 0) {
+      const mx = this.velX > 0 ? spd : this.velX < 0 ? -spd : 0;
+      const my = this.velY > 0 ? spd : this.velY < 0 ? -spd : 0;
+      this.x += mx;
+      this.y += my;
+    }
 
     // Tunnel wrap
-    const maxX = maze.width * ts;
-    if (this.pixelX < -ts) this.pixelX = maxX;
-    if (this.pixelX > maxX + ts) this.pixelX = -ts;
+    const W = maze.width * this.ts;
+    if (this.x < 0) this.x = W - this.ts;
+    if (this.x >= W) this.x = 0;
 
-    // Mouth animation
-    this.mouthAngle += this.mouthDelta;
-    if (this.mouthAngle > 0.7 || this.mouthAngle < 0.02) {
-      this.mouthDelta *= -1;
+    // Sync pixelX/pixelY for collision detection in main.js
+    this.pixelX = this.x;
+    this.pixelY = this.y;
+
+    // Mouth
+    if (this.velX !== 0 || this.velY !== 0) {
+      this.mouth += 0.1 * this.mouthDir;
+      if (this.mouth > 0.65 || this.mouth < 0.02) this.mouthDir *= -1;
     }
 
     if (this.speedBoostTimer > 0) this.speedBoostTimer--;
@@ -79,17 +126,16 @@ export class Player {
   }
 
   draw(ctx) {
-    const ts = this.tileSize;
-    const cx = this.pixelX + ts / 2;
-    const cy = this.pixelY + ts / 2;
-    const r = ts / 2 - 1;
+    const cx = this.x + this.ts / 2;
+    const cy = this.y + this.ts / 2;
+    const r = this.ts / 2 - 1;
+    const m = this.velX !== 0 || this.velY !== 0 ? this.mouth : 0.1;
 
     let angle = 0;
-    if (this.dir === "left") angle = Math.PI;
-    if (this.dir === "up") angle = -Math.PI / 2;
-    if (this.dir === "down") angle = Math.PI / 2;
-
-    const mouth = this.dir ? this.mouthAngle : 0.1;
+    if (this.velX > 0) angle = 0;
+    if (this.velX < 0) angle = Math.PI;
+    if (this.velY < 0) angle = -Math.PI / 2;
+    if (this.velY > 0) angle = Math.PI / 2;
 
     ctx.save();
     ctx.fillStyle = this.shield ? "#00ffae" : "#ffe600";
@@ -97,7 +143,7 @@ export class Player {
     ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, angle + mouth, angle + Math.PI * 2 - mouth);
+    ctx.arc(cx, cy, r, angle + m, angle + Math.PI * 2 - m);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
