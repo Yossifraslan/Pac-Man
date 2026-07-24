@@ -5,7 +5,6 @@ export class CollisionSystem {
     );
     if (idx !== -1) {
       maze.dots.splice(idx, 1);
-      maze.grid[player.gridY][player.gridX] = 2;
       return true;
     }
     return false;
@@ -17,7 +16,6 @@ export class CollisionSystem {
     );
     if (idx !== -1) {
       maze.pellets.splice(idx, 1);
-      maze.grid[player.gridY][player.gridX] = 2;
       return true;
     }
     return false;
