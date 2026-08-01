@@ -6,12 +6,14 @@ import { Monster } from "./entities/Monster.js";
 import { CollisionSystem } from "./systems/CollisionSystem.js";
 import { PowerUpManager } from "./systems/PowerUpManager.js";
 import { UIManager } from "./ui/UIManager.js";
+import { AudioManager } from "./audio/AudioManager.js";
 import { LEVEL_CONFIG } from "./maze/MazeData.js";
 
 const mazeManager = new MazeManager();
 const renderer = new Renderer(document.getElementById("gameCanvas"), 20);
 const input = new InputManager();
 const ui = new UIManager();
+const audio = new AudioManager();
 const powerUpMgr = new PowerUpManager();
 
 let maze = null;
@@ -63,7 +65,6 @@ function validateMaze(m) {
 function spawnMonsters(m, lvl) {
   const cfg = LEVEL_CONFIG[lvl - 1] || LEVEL_CONFIG[LEVEL_CONFIG.length - 1];
   const count = cfg.ghosts;
-  const speed = 2; // fixed at 2px/frame — divides tileSize 20 evenly, scales via cfg later
   const behaviors = ["chaser", "ambusher", "predictive", "patroller"];
   const colors = [
     "#ff4d4d",
@@ -76,8 +77,6 @@ function spawnMonsters(m, lvl) {
     "#ff6600",
   ];
 
-  // Only spawn on open path tiles (1 or 3), never walls (0) or ghost house (2)
-  // Pick tiles that are far from the player start
   const open = [];
   for (let y = 0; y < m.height; y++) {
     for (let x = 0; x < m.width; x++) {
@@ -89,24 +88,21 @@ function spawnMonsters(m, lvl) {
       }
     }
   }
-
-  // Sort by distance descending — ghosts start as far as possible from player
   open.sort((a, b) => b.dist - a.dist);
-
-  // Spread ghosts across far corners — take evenly spaced entries
   const step = Math.max(1, Math.floor(open.length / count));
   const spawns = Array.from(
     { length: count },
-    (_, i) => open[i * step] || open[0],
+    (_, i) => open[(i * step) % open.length] || open[0],
   );
 
   return spawns.map(
     (sp, i) =>
-      new Monster(m, 20, sp.x, sp.y, behaviors[i % 4], colors[i % 8], speed),
+      new Monster(m, 20, sp.x, sp.y, behaviors[i % 4], colors[i % 8], 2),
   );
 }
 
 window.startLevel = (lvl) => {
+  audio.stopMenuMusic();
   level = lvl;
   frameCount = 0;
   maze = mazeManager.build(level);
@@ -116,7 +112,7 @@ window.startLevel = (lvl) => {
   renderer.resizeToMaze(maze);
   ui.showScreen("gameScreen");
   ui.updateHUD(score, level, lives);
-  ui.showOverlay("LEVEL " + level, 1000);
+  ui.showOverlay("LEVEL " + level, 1200);
   gameActive = true;
   paused = false;
   if (animFrameId) cancelAnimationFrame(animFrameId);
@@ -132,6 +128,7 @@ function newGame(startLvl = 1) {
 input.onPause(() => {
   if (!gameActive) return;
   paused = !paused;
+  audio.pause();
   if (paused) ui.showOverlay("PAUSED", 0);
   else ui.hideOverlay();
 });
@@ -149,21 +146,19 @@ function update() {
 
   if (CollisionSystem.checkDot(player, maze)) {
     score += player.doublePointTimer > 0 ? 20 : 10;
+    audio.eatDot();
     ui.updateHUD(score, level, lives);
   }
 
   if (CollisionSystem.checkPellet(player, maze)) {
     score += 50;
+    audio.eatPellet();
     ui.updateHUD(score, level, lives);
     ui.showOverlay("POWER PELLET!", 800);
     const dur = frightenDuration(level);
     monsters.forEach((m) => m.setFrightened(dur));
     const pu = powerUpMgr.random();
-    const lifeGain = powerUpMgr.apply(pu.id, player, monsters, ui);
-    if (lifeGain) {
-      lives++;
-      ui.updateHUD(score, level, lives);
-    }
+    powerUpMgr.apply(pu.id, player, monsters, ui, audio);
   }
 
   for (const m of monsters) {
@@ -179,6 +174,7 @@ function update() {
         m.eaten = true;
         m.respawnTimer = 180;
         score += player.doublePointTimer > 0 ? 400 : 200;
+        audio.eatGhost();
         ui.showOverlay("+200!", 600);
         ui.updateHUD(score, level, lives);
       } else if (player.shield) {
@@ -198,6 +194,7 @@ function update() {
 
 function handleDeath() {
   lives--;
+  audio.death();
   ui.updateHUD(score, level, lives);
   gameActive = false;
 
@@ -212,9 +209,10 @@ function handleDeath() {
     const ts = 20;
     player.pixelX = maze.playerStart.x * ts;
     player.pixelY = maze.playerStart.y * ts;
-    player.gridX = maze.playerStart.x;
-    player.gridY = maze.playerStart.y;
-    player.dir = null;
+    player.x = player.pixelX;
+    player.y = player.pixelY;
+    player.velX = 0;
+    player.velY = 0;
     player.shield = false;
     monsters.forEach((m) => {
       m.pixelX = m.homeX * ts;
@@ -225,6 +223,8 @@ function handleDeath() {
       m.eaten = false;
       m.respawnTimer = 0;
       m.dir = "up";
+      m._frozenTimer = 0;
+      m._slowTimer = 0;
     });
     gameActive = true;
     ui.hideOverlay();
@@ -234,6 +234,7 @@ function handleDeath() {
 function handleLevelComplete() {
   gameActive = false;
   score += level * 500;
+  audio.levelUp();
   const next = level + 1;
   if (next > unlocked()) localStorage.setItem("pacman_unlocked", next);
   ui.showOverlay("🎉 LEVEL COMPLETE!", 0);
@@ -268,11 +269,13 @@ function loop() {
 
 window.addEventListener("DOMContentLoaded", () => {
   ui.updateHighScore(highScore());
+
   document.getElementById("startBtn").onclick = () => newGame(1);
   document.getElementById("retryBtn").onclick = () => newGame(1);
   document.getElementById("menuBtn").onclick = () => {
     gameActive = false;
     ui.showScreen("menuScreen");
+    audio.startMenuMusic();
   };
   document.getElementById("howtoBtn").onclick = () =>
     ui.showScreen("howtoScreen");
@@ -281,6 +284,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("pauseBtn").onclick = () => {
     if (!gameActive) return;
     paused = !paused;
+    audio.pause();
     if (paused) ui.showOverlay("PAUSED", 0);
     else ui.hideOverlay();
   };
@@ -291,7 +295,21 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("levelBackBtn").onclick = () =>
     ui.showScreen("menuScreen");
   document.getElementById("soundToggleBtn").onclick = (e) => {
-    const on = e.target.textContent.includes("ON");
-    e.target.textContent = on ? "SOUND: OFF" : "SOUND: ON";
+    audio.setEnabled(!audio.enabled);
+    e.target.textContent = audio.enabled ? "SOUND: ON" : "SOUND: OFF";
+    if (audio.enabled) audio.startMenuMusic();
   };
+
+  // First click resumes AudioContext — browser blocks audio before user gesture
+  document.body.addEventListener(
+    "click",
+    () => {
+      if (audio.ctx && audio.ctx.state === "suspended") {
+        audio.ctx.resume().then(() => audio.startMenuMusic());
+      } else {
+        audio.startMenuMusic();
+      }
+    },
+    { once: true },
+  );
 });
