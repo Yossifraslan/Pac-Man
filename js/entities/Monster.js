@@ -1,6 +1,6 @@
 export class Monster {
   constructor(maze, tileSize, gridX, gridY, behavior, color, speed) {
-    this.ts = tileSize;
+    this.tileSize = tileSize;
     this.pixelX = gridX * tileSize;
     this.pixelY = gridY * tileSize;
     this.gridX = gridX;
@@ -20,51 +20,80 @@ export class Monster {
   }
 
   isAligned() {
-    return this.pixelX % this.ts === 0 && this.pixelY % this.ts === 0;
+    return (
+      this.pixelX % this.tileSize === 0 && this.pixelY % this.tileSize === 0
+    );
   }
 
-  // Only call this when isAligned() is true — col/row must be integers
-  _tileOpen(maze, col, row) {
+  // Only call with integer col/row (guaranteed when isAligned() is true)
+  _open(maze, col, row) {
     if (col < 0 || col >= maze.width) return false;
     if (row < 0 || row >= maze.height) return false;
     const cell = maze.grid[row][col];
-    return cell !== 0 && cell !== undefined;
+    return cell !== undefined && cell !== 0;
   }
 
-  _canGoDir(maze, dir, col, row) {
-    const nc = col + (dir === "right" ? 1 : dir === "left" ? -1 : 0);
-    const nr = row + (dir === "down" ? 1 : dir === "up" ? -1 : 0);
-    return this._tileOpen(maze, nc, nr);
-  }
+  // BFS — finds actual shortest path to target, eliminates circling
+  _bfsDir(maze, fromCol, fromRow, toCol, toRow) {
+    const key = (c, r) => c * 1000 + r;
+    const start = key(fromCol, fromRow);
+    const goal = key(toCol, toRow);
 
-  _getValidDirs(maze, col, row, excludeReverse) {
-    const opp = { up: "down", down: "up", left: "right", right: "left" };
-    const all = ["up", "down", "left", "right"];
-    return all.filter((d) => {
-      if (excludeReverse && d === opp[this.dir]) return false;
-      return this._canGoDir(maze, d, col, row);
-    });
-  }
+    if (start === goal) return this.dir;
 
-  _pickDir(maze, col, row, targetX, targetY) {
-    const dirs = this._getValidDirs(maze, col, row, true);
-    const pool =
-      dirs.length > 0 ? dirs : this._getValidDirs(maze, col, row, false);
-    if (pool.length === 0) return this.dir;
+    const queue = [{ col: fromCol, row: fromRow, firstDir: null }];
+    const visited = new Set([start]);
 
-    const dc = { up: 0, down: 0, left: -1, right: 1 };
-    const dr = { up: -1, down: 1, left: 0, right: 0 };
+    while (queue.length) {
+      const { col, row, firstDir } = queue.shift();
 
-    let best = pool[0],
-      bestDist = Infinity;
-    for (const d of pool) {
-      const dist = (col + dc[d] - targetX) ** 2 + (row + dr[d] - targetY) ** 2;
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = d;
+      for (const d of ["up", "down", "left", "right"]) {
+        const nc = col + (d === "right" ? 1 : d === "left" ? -1 : 0);
+        const nr = row + (d === "down" ? 1 : d === "up" ? -1 : 0);
+        const k = key(nc, nr);
+
+        if (visited.has(k)) continue;
+        if (!this._open(maze, nc, nr)) continue;
+
+        const fd = firstDir || d;
+        if (k === goal) return fd;
+
+        visited.add(k);
+        queue.push({ col: nc, row: nr, firstDir: fd });
       }
     }
-    return best;
+
+    // No path found — pick any valid direction that isn't reverse
+    const opp = { up: "down", down: "up", left: "right", right: "left" };
+    const dirs = ["up", "down", "left", "right"].filter((d) => {
+      if (d === opp[this.dir]) return false;
+      return this._open(
+        maze,
+        fromCol + (d === "right" ? 1 : d === "left" ? -1 : 0),
+        fromRow + (d === "down" ? 1 : d === "up" ? -1 : 0),
+      );
+    });
+    return dirs.length > 0 ? dirs[0] : this.dir;
+  }
+
+  _randomDir(maze, col, row) {
+    const opp = { up: "down", down: "up", left: "right", right: "left" };
+    const dirs = ["up", "down", "left", "right"].filter((d) => {
+      if (d === opp[this.dir]) return false;
+      const nc = col + (d === "right" ? 1 : d === "left" ? -1 : 0);
+      const nr = row + (d === "down" ? 1 : d === "up" ? -1 : 0);
+      return this._open(maze, nc, nr);
+    });
+    if (dirs.length === 0) {
+      // dead end — reverse
+      const rev = opp[this.dir];
+      const nc = col + (rev === "right" ? 1 : rev === "left" ? -1 : 0);
+      const nr = row + (rev === "down" ? 1 : rev === "up" ? -1 : 0);
+      if (this._open(maze, nc, nr)) return rev;
+    }
+    return dirs.length > 0
+      ? dirs[Math.floor(Math.random() * dirs.length)]
+      : this.dir;
   }
 
   _getTarget(player, frameCount) {
@@ -97,8 +126,8 @@ export class Monster {
   }
 
   update(maze, player, frameCount) {
-    const ts = this.ts;
-    const spd = 2; // integer, divides 20 evenly — NEVER change this
+    const ts = this.tileSize;
+    const spd = 2; // MUST be integer that divides tileSize (20) — never change
 
     // Respawn countdown
     if (this.eaten) {
@@ -120,42 +149,36 @@ export class Monster {
       if (this.frightenedTimer <= 0) this.frightened = false;
     }
 
-    // ── Direction decision — ONLY when exactly on a tile ──────────────
-    // At this point pixelX/ts and pixelY/ts are guaranteed integers
+    // Direction decisions ONLY when exactly on a tile
     if (this.isAligned()) {
-      const col = this.pixelX / ts;
+      const col = this.pixelX / ts; // guaranteed integer when aligned
       const row = this.pixelY / ts;
       this.gridX = col;
       this.gridY = row;
 
       if (this.frightened) {
-        const dirs = this._getValidDirs(maze, col, row, true);
-        const pool =
-          dirs.length > 0 ? dirs : this._getValidDirs(maze, col, row, false);
-        if (pool.length > 0) {
-          this.dir = pool[Math.floor(Math.random() * pool.length)];
-        }
+        this.dir = this._randomDir(maze, col, row);
       } else {
         const t = this._getTarget(player, frameCount);
-        this.dir = this._pickDir(maze, col, row, t.x, t.y);
+        this.dir = this._bfsDir(maze, col, row, t.x, t.y);
       }
     }
 
-    // ── Movement — always move mid-tile, no wall check needed ─────────
-    // Wall checks happen only at alignment above, so direction is always valid
+    // Move — no wall check needed here because direction was validated above
     if (this.dir === "up") this.pixelY -= spd;
     if (this.dir === "down") this.pixelY += spd;
     if (this.dir === "left") this.pixelX -= spd;
     if (this.dir === "right") this.pixelX += spd;
 
-    // Hard clamp — never leave map
+    // Hard clamp — never leave the map
     this.pixelX = Math.max(0, Math.min(this.pixelX, (maze.width - 1) * ts));
     this.pixelY = Math.max(0, Math.min(this.pixelY, (maze.height - 1) * ts));
   }
 
   draw(ctx) {
     if (this.eaten) return;
-    const ts = this.ts;
+
+    const ts = this.tileSize;
     const cx = this.pixelX + ts / 2;
     const cy = this.pixelY + ts / 2;
     const r = ts / 2 - 1;
@@ -172,6 +195,7 @@ export class Monster {
     ctx.fillStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = 6;
+
     ctx.beginPath();
     ctx.arc(cx, cy - r * 0.1, r, Math.PI, 0);
     ctx.lineTo(cx + r, cy + r * 0.8);
@@ -213,11 +237,12 @@ export class Monster {
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(cx - r * 0.5, cy + r * 0.3);
-      for (let i = 0; i <= 4; i++)
+      for (let i = 0; i <= 4; i++) {
         ctx.lineTo(
           cx - r * 0.5 + i * (r / 4),
           cy + r * 0.3 + (i % 2 === 0 ? r * 0.15 : -r * 0.15),
         );
+      }
       ctx.stroke();
     }
     ctx.restore();
