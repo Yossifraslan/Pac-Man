@@ -297,7 +297,10 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("soundToggleBtn").onclick = (e) => {
     audio.setEnabled(!audio.enabled);
     e.target.textContent = audio.enabled ? "SOUND: ON" : "SOUND: OFF";
-    if (audio.enabled) audio.startMenuMusic();
+    if (audio.enabled) {
+      // Small delay so any in-flight notes finish before restarting
+      setTimeout(() => audio.startMenuMusic(), 300);
+    }
   };
 
   // First click resumes AudioContext — browser blocks audio before user gesture
