@@ -5,6 +5,7 @@ export class AudioManager {
     this._menuMusicPlaying = false;
     this._menuMusicStopped = false;
     this._menuMusicTimeout = null;
+    this._activeOscillators = []; // track all playing notes
   }
 
   _ensureCtx() {
@@ -27,16 +28,26 @@ export class AudioManager {
     if (!this.enabled) return;
     this._ensureCtx();
     const ctx = this._ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    gain.gain.value = vol;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-    osc.stop(ctx.currentTime + duration);
+    const play = () => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = vol;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        ctx.currentTime + duration,
+      );
+      osc.stop(ctx.currentTime + duration);
+    };
+    if (ctx.state === "suspended") {
+      ctx.resume().then(play);
+    } else {
+      play();
+    }
   }
 
   _scheduleNote(freq, startTime, duration) {
@@ -53,10 +64,27 @@ export class AudioManager {
     gain.gain.setValueAtTime(0.04, startTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 0.9);
     osc.stop(startTime + duration);
+
+    // Track it so we can kill it early if needed
+    this._activeOscillators.push(osc);
+    osc.onended = () => {
+      const i = this._activeOscillators.indexOf(osc);
+      if (i !== -1) this._activeOscillators.splice(i, 1);
+    };
+  }
+
+  _stopAllOscillators() {
+    for (const osc of this._activeOscillators) {
+      try {
+        osc.stop();
+      } catch (_) {}
+    }
+    this._activeOscillators = [];
   }
 
   startMenuMusic() {
     if (!this.enabled || this._menuMusicPlaying) return;
+    this._menuMusicStopped = false;
     this._ensureCtx();
     if (this.ctx.state === "suspended") {
       this.ctx.resume().then(() => this._playMelody());
@@ -68,7 +96,6 @@ export class AudioManager {
   _playMelody() {
     if (this._menuMusicStopped) return;
     this._menuMusicPlaying = true;
-    this._menuMusicStopped = false;
 
     const notes = [
       [659, 0.12],
@@ -116,9 +143,11 @@ export class AudioManager {
   }
 
   stopMenuMusic() {
-    this._menuMusicPlaying = false;
     this._menuMusicStopped = true;
+    this._menuMusicPlaying = false;
     clearTimeout(this._menuMusicTimeout);
+    this._menuMusicTimeout = null;
+    this._stopAllOscillators(); // kill scheduled notes immediately
   }
 
   eatDot() {
