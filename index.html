@@ -213,7 +213,7 @@
       <button class="menu-btn back-btn" id="howtoBackBtn">← BACK</button>
     </div>
 
-    <!-- SCREEN 4: GAME (canvas wired in Devlog 2) -->
+    <!-- SCREEN 4: GAME -->
     <div class="screen" id="gameScreen">
       <div id="hud">
         <div class="hud-item">
@@ -230,31 +230,17 @@
         </div>
         <button id="pauseBtn">⏸ PAUSE</button>
       </div>
-      <div style="position: relative; width: 100%">
+
+      <div id="canvasWrapper">
         <canvas id="gameCanvas"></canvas>
         <div id="overlayMsg"></div>
       </div>
+
       <div id="touchControls">
-        <button class="tc-up" data-dir="up">
-          <svg viewBox="0 0 24 24" width="22" fill="currentColor">
-            <path d="M12 4l-8 8h16z" />
-          </svg>
-        </button>
-        <button class="tc-left" data-dir="left">
-          <svg viewBox="0 0 24 24" width="22" fill="currentColor">
-            <path d="M4 12l8-8v16z" />
-          </svg>
-        </button>
-        <button class="tc-right" data-dir="right">
-          <svg viewBox="0 0 24 24" width="22" fill="currentColor">
-            <path d="M20 12l-8-8v16z" />
-          </svg>
-        </button>
-        <button class="tc-down" data-dir="down">
-          <svg viewBox="0 0 24 24" width="22" fill="currentColor">
-            <path d="M12 20l8-8H4z" />
-          </svg>
-        </button>
+        <button class="tc-up" data-dir="up">▲</button>
+        <button class="tc-left" data-dir="left">◀</button>
+        <button class="tc-right" data-dir="right">▶</button>
+        <button class="tc-down" data-dir="down">▼</button>
       </div>
     </div>
 
@@ -327,4 +313,3 @@
     <script type="module" src="js/main.js"></script>
   </body>
 </html>
-
