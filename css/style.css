@@ -62,7 +62,6 @@ body {
   gap: 16px;
   margin-top: 32px;
 }
-
 .logo-pac {
   width: 54px;
   height: 54px;
@@ -78,7 +77,6 @@ body {
     transform: rotate(10deg);
   }
 }
-
 .logo {
   font-family: var(--font-h);
   font-size: 2.2rem;
@@ -89,7 +87,6 @@ body {
     0 0 30px rgba(255, 230, 0, 0.4);
   line-height: 1.1;
 }
-
 .subtitle {
   font-family: var(--font-h);
   font-size: 0.5rem;
@@ -131,7 +128,6 @@ body {
   gap: 10px;
   width: 100%;
 }
-
 .menu-btn {
   background: var(--card-bg);
   border: 2px solid var(--border);
@@ -270,8 +266,6 @@ body {
   letter-spacing: 2px;
   margin-bottom: 14px;
 }
-
-/* Keyboard keys */
 kbd {
   display: inline-flex;
   align-items: center;
@@ -295,7 +289,6 @@ kbd.arrow {
   min-width: 30px;
   height: 30px;
 }
-
 .key-group {
   display: flex;
   flex-direction: column;
@@ -317,8 +310,6 @@ kbd.arrow {
   margin-top: 10px;
   text-align: center;
 }
-
-/* Collectibles */
 .collect-row {
   display: flex;
   align-items: center;
@@ -336,8 +327,6 @@ kbd.arrow {
   font-size: 0.75rem;
   color: var(--yellow);
 }
-
-/* Ghost rows */
 .ghost-row {
   display: flex;
   align-items: center;
@@ -350,8 +339,6 @@ kbd.arrow {
 .ghost-row strong {
   display: block;
 }
-
-/* Power-up list */
 .pu-list {
   list-style: none;
   display: flex;
@@ -379,13 +366,21 @@ kbd.arrow {
   filter: drop-shadow(0 0 4px currentColor);
 }
 
-/* ── HUD ── */
+/* ── Game screen ── */
+#gameScreen {
+  padding: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
 #hud {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 4px 6px;
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 8px 12px 6px;
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -437,7 +432,14 @@ kbd.arrow {
   border-color: var(--blue);
 }
 
-/* ── Canvas ── */
+/* ── Canvas wrapper ── */
+#canvasWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 660px;
+  margin: 0 auto;
+}
+
 canvas {
   display: block;
   width: 100%;
@@ -448,7 +450,6 @@ canvas {
   image-rendering: pixelated;
 }
 
-/* ── Overlay ── */
 #overlayMsg {
   position: absolute;
   top: 50%;
@@ -480,25 +481,30 @@ canvas {
 /* ── Mobile D-pad ── */
 #touchControls {
   display: none;
-  grid-template-columns: 64px 64px 64px;
-  grid-template-rows: 64px 64px 64px;
+  grid-template-columns: 72px 72px 72px;
+  grid-template-rows: 72px 72px 72px;
   gap: 8px;
-  margin-top: 18px;
+  margin: 16px auto 0;
   user-select: none;
+  touch-action: none;
 }
 #touchControls button {
   background: rgba(0, 229, 255, 0.1);
   border: 2px solid rgba(0, 229, 255, 0.4);
   color: var(--blue);
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.1s;
+  font-size: 1.6rem;
+  transition: background 0.08s;
+  -webkit-tap-highlight-color: transparent;
 }
-#touchControls button:active {
-  background: rgba(0, 229, 255, 0.3);
+#touchControls button:active,
+#touchControls button.pressed {
+  background: rgba(0, 229, 255, 0.35);
+  border-color: var(--blue);
 }
 .tc-up {
   grid-column: 2;
@@ -516,15 +522,11 @@ canvas {
   grid-column: 2;
   grid-row: 3;
 }
-@media (max-width: 700px) {
+
+/* Show D-pad on touch devices or narrow screens */
+@media (max-width: 700px), (pointer: coarse) {
   #touchControls {
     display: grid;
-  }
-  .logo {
-    font-size: 1.6rem;
-  }
-  .menu-btn {
-    width: 260px;
   }
 }
 
@@ -569,17 +571,20 @@ footer {
   text-align: center;
 }
 
-#gameScreen {
-  padding: 0;
-}
-
-canvas {
-  display: block;
-  width: auto;
-  height: calc(100vh - 60px);
-  max-width: 100%;
-  background: #000;
-  border: 2px solid #1a1aff;
-  box-shadow: 0 0 30px rgba(0, 0, 200, 0.5);
-  image-rendering: pixelated;
+/* ── Responsive font scaling ── */
+@media (max-width: 480px) {
+  .logo {
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+  }
+  .menu-btn {
+    width: 90%;
+    font-size: 0.52rem;
+  }
+  .hud-value {
+    font-size: 0.65rem;
+  }
+  .hud-label {
+    font-size: 0.35rem;
+  }
 }
