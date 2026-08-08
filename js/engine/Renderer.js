@@ -3,6 +3,11 @@ export class Renderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.tileSize = tileSize;
+
+    // Flash effect state
+    this._flashTimer = 0;
+    this._flashColor = "#ffffff";
+    this._flashDuration = 0;
   }
 
   resizeToMaze(maze) {
@@ -14,13 +19,30 @@ export class Renderer {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
+  // Trigger a full-canvas flash (level complete etc.)
+  flash(color = "#ffffff", durationFrames = 20) {
+    this._flashColor = color;
+    this._flashTimer = durationFrames;
+    this._flashDuration = durationFrames;
+  }
+
+  drawFlash() {
+    if (this._flashTimer <= 0) return;
+    const alpha = (this._flashTimer / this._flashDuration) * 0.5;
+    this.ctx.save();
+    this.ctx.globalAlpha = alpha;
+    this.ctx.fillStyle = this._flashColor;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.restore();
+    this._flashTimer--;
+  }
+
   drawMaze(maze) {
     const { ctx, tileSize: ts } = this;
 
     for (let y = 0; y < maze.height; y++) {
       for (let x = 0; x < maze.width; x++) {
         const cell = maze.grid[y][x];
-
         if (cell === 0) {
           ctx.fillStyle = "#0d0d35";
           ctx.fillRect(x * ts, y * ts, ts, ts);
@@ -28,12 +50,10 @@ export class Renderer {
           ctx.lineWidth = 1;
           ctx.strokeRect(x * ts + 1, y * ts + 1, ts - 2, ts - 2);
         }
-
         if (cell === 2) {
-          // Ghost house interior
           ctx.fillStyle = "#1a0a0a";
           ctx.fillRect(x * ts, y * ts, ts, ts);
-          ctx.strokeStyle = "#ff000066";
+          ctx.strokeStyle = "#ff000044";
           ctx.lineWidth = 1;
           ctx.strokeRect(x * ts + 1, y * ts + 1, ts - 2, ts - 2);
         }
@@ -68,5 +88,24 @@ export class Renderer {
     ctx.fillRect(0, y, this.canvas.width, 3);
     ctx.fillStyle = "#ffe600";
     ctx.fillRect(0, y, this.canvas.width * ratio, 3);
+  }
+
+  // Animated score popup at a world position
+  drawScorePopup(popup) {
+    if (!popup || popup.life <= 0) return;
+    const ctx = this.ctx;
+    const alpha = popup.life / popup.maxLife;
+    const offsetY = (1 - alpha) * 30; // floats upward
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "#ffe600";
+    ctx.font = 'bold 12px "Press Start 2P", monospace';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "#ffe600";
+    ctx.shadowBlur = 8;
+    ctx.fillText(popup.text, popup.x, popup.y - offsetY);
+    ctx.restore();
+    popup.life--;
   }
 }
