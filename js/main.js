@@ -358,12 +358,8 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("howtoBackBtn").onclick = () =>
     ui.showScreen("menuScreen");
   document.getElementById("pauseBtn").onclick = () => {
-    togglePause();
     if (!gameActive) return;
-    paused = !paused;
-    audio.pause();
-    if (paused) ui.showOverlay("PAUSED", 0);
-    else ui.hideOverlay();
+    togglePause();
   };
   document.getElementById("levelsBtn").onclick = () => {
     ui.buildLevelGrid(unlocked(), (lvl) => newGame(lvl));
@@ -372,8 +368,10 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("levelBackBtn").onclick = () =>
     ui.showScreen("menuScreen");
   document.getElementById("soundToggleBtn").onclick = (e) => {
-    audio.setEnabled(!audio.enabled);
-    e.target.textContent = audio.enabled ? "SOUND: ON" : "SOUND: OFF";
+    const bothOn = audio.musicEnabled && audio.sfxEnabled;
+    audio.setMusicEnabled(!bothOn);
+    audio.setSfxEnabled(!bothOn);
+    e.target.textContent = !bothOn ? "SOUND: ON" : "SOUND: OFF";
     if (audio.enabled) {
       setTimeout(() => audio.startMenuMusic(), 300);
     }
