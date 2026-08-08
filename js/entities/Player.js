@@ -1,6 +1,6 @@
 export class Player {
   constructor(maze, tileSize) {
-    this.ts = tileSize;
+    this.tileSize = tileSize;
     this.x = maze.playerStart.x * tileSize;
     this.y = maze.playerStart.y * tileSize;
     this.gridX = maze.playerStart.x;
@@ -18,7 +18,14 @@ export class Player {
     this.speedBoostTimer = 0;
     this.doublePointTimer = 0;
 
-    // keep pixelX/pixelY working for collision in main.js
+    this.dying = false;
+    this.deathTimer = 0;
+    this.deathFrames = 80; // longer so animation is visible
+
+    this.spawning = true;
+    this.spawnTimer = 40; // slower so it's visible
+    this.spawnFrames = 40;
+
     this.pixelX = this.x;
     this.pixelY = this.y;
   }
@@ -51,35 +58,58 @@ export class Player {
     }
   }
 
-  isAligned() {
-    return this.x % this.ts === 0 && this.y % this.ts === 0;
+  triggerDeath() {
+    this.dying = true;
+    this.deathTimer = this.deathFrames;
+    this.velX = 0;
+    this.velY = 0;
+    this._waitingRespawn = true;
   }
 
-  // Only call when isAligned — col/row are integers
+  triggerSpawn() {
+    this.spawning = true;
+    this.spawnTimer = this.spawnFrames;
+    this._waitingRespawn = false;
+  }
+
+  isAligned() {
+    return this.x % this.tileSize === 0 && this.y % this.tileSize === 0;
+  }
+
   _tileOpen(maze, col, row) {
-    if (col < 0 || col >= maze.width) return true; // tunnel
+    if (col < 0 || col >= maze.width) return true;
     if (row < 0 || row >= maze.height) return false;
     const cell = maze.grid[row][col];
     return cell !== 0 && cell !== 2 && cell !== undefined;
   }
 
   _canGoVel(maze, vx, vy) {
-    const col = this.x / this.ts;
-    const row = this.y / this.ts;
+    const col = this.x / this.tileSize;
+    const row = this.y / this.tileSize;
     const nc = col + (vx > 0 ? 1 : vx < 0 ? -1 : 0);
     const nr = row + (vy > 0 ? 1 : vy < 0 ? -1 : 0);
     return this._tileOpen(maze, nc, nr);
   }
 
   update(maze) {
-    const spd = 2; // must divide tileSize (20) evenly
+    if (this.dying || this.spawning) {
+      if (this.dying) {
+        this.deathTimer--;
+        if (this.deathTimer <= 0) this.dying = false;
+      }
+      if (this.spawning) {
+        this.spawnTimer--;
+        if (this.spawnTimer <= 0) this.spawning = false;
+      }
+      return;
+    }
 
-    // ── Direction decisions — only when exactly on a tile ─────────────
+    const spd = 2;
+
     if (this.isAligned()) {
-      this.gridX = this.x / this.ts;
-      this.gridY = this.y / this.ts;
+      this.gridX = this.x / this.tileSize;
+      this.gridY = this.y / this.tileSize;
 
-      // Try queued direction
       if (
         (this.queuedVelX !== 0 || this.queuedVelY !== 0) &&
         this._canGoVel(maze, this.queuedVelX, this.queuedVelY)
@@ -88,7 +118,6 @@ export class Player {
         this.velY = this.queuedVelY;
       }
 
-      // Stop if current direction is now blocked
       if (
         (this.velX !== 0 || this.velY !== 0) &&
         !this._canGoVel(maze, this.velX, this.velY)
@@ -98,7 +127,6 @@ export class Player {
       }
     }
 
-    // ── Movement — no wall check mid-tile ─────────────────────────────
     if (this.velX !== 0 || this.velY !== 0) {
       const mx = this.velX > 0 ? spd : this.velX < 0 ? -spd : 0;
       const my = this.velY > 0 ? spd : this.velY < 0 ? -spd : 0;
@@ -106,16 +134,13 @@ export class Player {
       this.y += my;
     }
 
-    // Tunnel wrap
-    const W = maze.width * this.ts;
-    if (this.x < 0) this.x = W - this.ts;
+    const W = maze.width * this.tileSize;
+    if (this.x < 0) this.x = W - this.tileSize;
     if (this.x >= W) this.x = 0;
 
-    // Sync pixelX/pixelY for collision detection in main.js
     this.pixelX = this.x;
     this.pixelY = this.y;
 
-    // Mouth
     if (this.velX !== 0 || this.velY !== 0) {
       this.mouth += 0.1 * this.mouthDir;
       if (this.mouth > 0.65 || this.mouth < 0.02) this.mouthDir *= -1;
@@ -126,26 +151,56 @@ export class Player {
   }
 
   draw(ctx) {
-    const cx = this.x + this.ts / 2;
-    const cy = this.y + this.ts / 2;
-    const r = this.ts / 2 - 1;
-    const m = this.velX !== 0 || this.velY !== 0 ? this.mouth : 0.1;
+    if (!this.dying && !this.spawning && this._waitingRespawn) return;
 
+    const ts = this.tileSize;
+    const cx = this.x + ts / 2;
+    const cy = this.y + ts / 2;
+    const r = ts / 2 - 1;
+
+    ctx.save();
+
+    // All transforms go through center point
+    ctx.translate(cx, cy);
+
+    if (this.spawning) {
+      // Grow from 0 to full size
+      const progress = 1 - this.spawnTimer / this.spawnFrames;
+      ctx.scale(progress, progress);
+    }
+
+    if (this.dying) {
+      // Spin and shrink
+      const progress = 1 - this.deathTimer / this.deathFrames;
+      const scale = Math.max(0, 1 - progress);
+      const spin = progress * Math.PI * 4; // 2 full rotations
+      ctx.rotate(spin);
+      ctx.scale(scale, scale);
+    }
+
+    // After transforms, draw at origin (0,0) since we translated to cx,cy
     let angle = 0;
     if (this.velX > 0) angle = 0;
     if (this.velX < 0) angle = Math.PI;
     if (this.velY < 0) angle = -Math.PI / 2;
     if (this.velY > 0) angle = Math.PI / 2;
 
-    ctx.save();
+    // Death: mouth closes as animation progresses
+    const mouth = this.dying
+      ? Math.max(0.02, 0.5 - (1 - this.deathTimer / this.deathFrames) * 0.5)
+      : this.velX !== 0 || this.velY !== 0
+        ? this.mouth
+        : 0.1;
+
     ctx.fillStyle = this.shield ? "#00ffae" : "#ffe600";
     ctx.shadowColor = ctx.fillStyle;
     ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, angle + m, angle + Math.PI * 2 - m);
+    ctx.moveTo(0, 0); // center is now at origin
+    ctx.arc(0, 0, r, angle + mouth, angle + Math.PI * 2 - mouth);
     ctx.closePath();
     ctx.fill();
+
     ctx.restore();
   }
 }
