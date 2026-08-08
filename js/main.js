@@ -28,6 +28,9 @@ let lives = 3;
 let level = 1;
 let gameActive = false;
 
+// Score popups — floating +200, +10 etc at position on canvas
+let scorePopups = [];
+
 const frightenDuration = (lvl) => Math.max(480 - lvl * 30, 180);
 const highScore = () => parseInt(localStorage.getItem("pacman_hs") || "0");
 const unlocked = () => parseInt(localStorage.getItem("pacman_unlocked") || "1");
@@ -97,16 +100,22 @@ function spawnMonsters(m, lvl) {
 
   return spawns.map(
     (sp, i) =>
-      new Monster(m, 20, sp.x, sp.y, behaviors[i % 4], colors[i % 8], 2),
+      new Monster(m, 20, sp.x, sp.y, behaviors[i % 4], colors[i % 8], 1),
   );
+}
+
+function addPopup(text, x, y) {
+  scorePopups.push({ text, x, y, life: 50, maxLife: 50 });
 }
 
 window.startLevel = (lvl) => {
   audio.stopMenuMusic();
   level = lvl;
   frameCount = 0;
+  scorePopups = [];
   maze = mazeManager.build(level);
   player = new Player(maze, 20);
+  player.triggerSpawn();
   monsters = spawnMonsters(maze, level);
   validateMaze(maze);
   renderer.resizeToMaze(maze);
@@ -127,11 +136,47 @@ function newGame(startLvl = 1) {
 
 input.onPause(() => {
   if (!gameActive) return;
-  paused = !paused;
-  audio.pause();
-  if (paused) ui.showOverlay("PAUSED", 0);
-  else ui.hideOverlay();
+  togglePause();
 });
+
+function togglePause() {
+  paused = !paused;
+  const panel = document.getElementById("pausePanel");
+  if (paused) {
+    panel.classList.add("active");
+    audio.pause();
+  } else {
+    panel.classList.remove("active");
+    ui.hideOverlay();
+  }
+}
+
+function setupPausePanel() {
+  const musicBtn = document.getElementById("musicToggleBtn");
+  const sfxBtn = document.getElementById("sfxToggleBtn");
+  const resumeBtn = document.getElementById("resumeBtn");
+
+  musicBtn.classList.add("active-on");
+  sfxBtn.classList.add("active-on");
+
+  musicBtn.onclick = () => {
+    const on = !audio.musicEnabled;
+    audio.setMusicEnabled(on);
+    musicBtn.textContent = on ? "🎵 MUSIC: ON" : "🎵 MUSIC: OFF";
+    if (on) musicBtn.classList.add("active-on");
+    else musicBtn.classList.remove("active-on");
+  };
+
+  sfxBtn.onclick = () => {
+    const on = !audio.sfxEnabled;
+    audio.setSfxEnabled(on);
+    sfxBtn.textContent = on ? "🔊 SFX: ON" : "🔊 SFX: OFF";
+    if (on) sfxBtn.classList.add("active-on");
+    else sfxBtn.classList.remove("active-on");
+  };
+
+  resumeBtn.onclick = () => togglePause();
+}
 
 function update() {
   if (!maze || !player) return;
@@ -144,8 +189,12 @@ function update() {
 
   player.update(maze);
 
+  // Don't process collisions during spawn or death animation
+  if (player.dying || player.spawning) return;
+
   if (CollisionSystem.checkDot(player, maze)) {
-    score += player.doublePointTimer > 0 ? 20 : 10;
+    const pts = player.doublePointTimer > 0 ? 20 : 10;
+    score += pts;
     audio.eatDot();
     ui.updateHUD(score, level, lives);
   }
@@ -173,9 +222,11 @@ function update() {
       if (m.frightened) {
         m.eaten = true;
         m.respawnTimer = 180;
-        score += player.doublePointTimer > 0 ? 400 : 200;
+        const pts = player.doublePointTimer > 0 ? 400 : 200;
+        score += pts;
         audio.eatGhost();
-        ui.showOverlay("+200!", 600);
+        // Popup at ghost position
+        addPopup("+" + pts, m.pixelX + 10, m.pixelY);
         ui.updateHUD(score, level, lives);
       } else if (player.shield) {
         player.shield = false;
@@ -198,43 +249,53 @@ function handleDeath() {
   ui.updateHUD(score, level, lives);
   gameActive = false;
 
-  if (lives <= 0) {
-    ui.showOverlay("GAME OVER", 0);
-    setTimeout(handleGameOver, 1400);
-    return;
-  }
+  // Trigger death animation
+  player.triggerDeath();
 
-  ui.showOverlay("💀 -1 LIFE", 0);
-  setTimeout(() => {
-    const ts = 20;
-    player.pixelX = maze.playerStart.x * ts;
-    player.pixelY = maze.playerStart.y * ts;
-    player.x = player.pixelX;
-    player.y = player.pixelY;
-    player.velX = 0;
-    player.velY = 0;
-    player.shield = false;
-    monsters.forEach((m) => {
-      m.pixelX = m.homeX * ts;
-      m.pixelY = m.homeY * ts;
-      m.gridX = m.homeX;
-      m.gridY = m.homeY;
-      m.frightened = false;
-      m.eaten = false;
-      m.respawnTimer = 0;
-      m.dir = "up";
-      m._frozenTimer = 0;
-      m._slowTimer = 0;
-    });
-    gameActive = true;
-    ui.hideOverlay();
-  }, 1400);
+  setTimeout(
+    () => {
+      if (lives <= 0) {
+        handleGameOver();
+        return;
+      }
+
+      const ts = 20;
+      player.pixelX = maze.playerStart.x * ts;
+      player.pixelY = maze.playerStart.y * ts;
+      player.x = player.pixelX;
+      player.y = player.pixelY;
+      player.velX = 0;
+      player.velY = 0;
+      player.shield = false;
+      player.dying = false;
+      player.triggerSpawn();
+
+      monsters.forEach((m) => {
+        m.pixelX = m.homeX * ts;
+        m.pixelY = m.homeY * ts;
+        m.gridX = m.homeX;
+        m.gridY = m.homeY;
+        m.frightened = false;
+        m.eaten = false;
+        m.respawnTimer = 0;
+        m.dir = "up";
+        m._frozenTimer = 0;
+        m._slowTimer = 0;
+      });
+
+      gameActive = true;
+      ui.hideOverlay();
+    },
+    (player.deathFrames / 60) * 1000 + 800,
+  );
 }
 
 function handleLevelComplete() {
   gameActive = false;
   score += level * 500;
+  lives = 3;
   audio.levelUp();
+  renderer.flash("#ffe600", 30);
   const next = level + 1;
   if (next > unlocked()) localStorage.setItem("pacman_unlocked", next);
   ui.showOverlay("🎉 LEVEL COMPLETE!", 0);
@@ -259,18 +320,33 @@ function handleGameOver() {
 
 function loop() {
   if (!paused && gameActive) update();
+
+  if (!gameActive && player && (player.dying || player.spawning)) {
+    player.update(maze);
+  }
+
   renderer.clear();
   if (maze) renderer.drawMaze(maze);
+  renderer.drawFlash();
   monsters.forEach((m) => m.draw(renderer.ctx));
   if (player) player.draw(renderer.ctx);
   if (maze) renderer.drawProgressBar(maze);
+
+  // Draw and tick score popups
+  scorePopups = scorePopups.filter((p) => p.life > 0);
+  scorePopups.forEach((p) => renderer.drawScorePopup(p));
+
+  // Tick animated score counter
+  ui.tickScore();
+
   animFrameId = requestAnimationFrame(loop);
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  setupPausePanel();
   ui.updateHighScore(highScore());
 
-  document.getElementById("startBtn").onclick = () => newGame(1);
+  document.getElementById("startBtn").onclick = () => newGame(unlocked());
   document.getElementById("retryBtn").onclick = () => newGame(1);
   document.getElementById("menuBtn").onclick = () => {
     gameActive = false;
@@ -282,6 +358,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("howtoBackBtn").onclick = () =>
     ui.showScreen("menuScreen");
   document.getElementById("pauseBtn").onclick = () => {
+    togglePause();
     if (!gameActive) return;
     paused = !paused;
     audio.pause();
@@ -298,12 +375,10 @@ window.addEventListener("DOMContentLoaded", () => {
     audio.setEnabled(!audio.enabled);
     e.target.textContent = audio.enabled ? "SOUND: ON" : "SOUND: OFF";
     if (audio.enabled) {
-      // Small delay so any in-flight notes finish before restarting
       setTimeout(() => audio.startMenuMusic(), 300);
     }
   };
 
-  // First click resumes AudioContext — browser blocks audio before user gesture
   document.body.addEventListener(
     "click",
     () => {
