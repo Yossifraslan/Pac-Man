@@ -588,3 +588,75 @@ footer {
     font-size: 0.35rem;
   }
 }
+/* ── Pause Panel ── */
+#pausePanel {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  z-index: 200;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+#pausePanel.active {
+  display: flex;
+}
+
+#pausePanel h2 {
+  font-family: var(--font-h);
+  font-size: 1.1rem;
+  color: var(--yellow);
+  text-shadow: 0 0 14px var(--yellow);
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+}
+.pause-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pause-setting-btn {
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  color: #aaa;
+  width: 260px;
+  padding: 14px;
+  font-family: var(--font-h);
+  font-size: 0.55rem;
+  letter-spacing: 1.5px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+.pause-setting-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.pause-setting-btn.active-on {
+  border-color: var(--green);
+  color: var(--green);
+}
+.pause-resume-btn {
+  background: transparent;
+  border: 2px solid var(--yellow);
+  color: var(--yellow);
+  width: 260px;
+  padding: 14px;
+  font-family: var(--font-h);
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.pause-resume-btn:hover {
+  background: var(--yellow);
+  color: #000;
+}
