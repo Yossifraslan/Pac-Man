@@ -1,11 +1,12 @@
 export class AudioManager {
   constructor() {
-    this.enabled = true;
+    this.musicEnabled = true;
+    this.sfxEnabled = true;
     this.ctx = null;
     this._menuMusicPlaying = false;
     this._menuMusicStopped = false;
     this._menuMusicTimeout = null;
-    this._activeOscillators = []; // track all playing notes
+    this._activeOscillators = [];
   }
 
   _ensureCtx() {
@@ -19,13 +20,25 @@ export class AudioManager {
     return this.ctx;
   }
 
+  setMusicEnabled(v) {
+    this.musicEnabled = v;
+    if (!v) this.stopMenuMusic();
+    else this.startMenuMusic();
+  }
+
+  setSfxEnabled(v) {
+    this.sfxEnabled = v;
+  }
+
+  // Keep for backward compat with sound toggle button
   setEnabled(v) {
-    this.enabled = v;
+    this.musicEnabled = v;
+    this.sfxEnabled = v;
     if (!v) this.stopMenuMusic();
   }
 
   _beep(freq, duration, type = "square", vol = 0.06) {
-    if (!this.enabled) return;
+    if (!this.sfxEnabled) return;
     this._ensureCtx();
     const ctx = this._ctx();
     const play = () => {
@@ -43,15 +56,12 @@ export class AudioManager {
       );
       osc.stop(ctx.currentTime + duration);
     };
-    if (ctx.state === "suspended") {
-      ctx.resume().then(play);
-    } else {
-      play();
-    }
+    if (ctx.state === "suspended") ctx.resume().then(play);
+    else play();
   }
 
   _scheduleNote(freq, startTime, duration) {
-    if (!this.enabled) return;
+    if (!this.musicEnabled) return;
     const ctx = this._ctx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -64,8 +74,6 @@ export class AudioManager {
     gain.gain.setValueAtTime(0.04, startTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 0.9);
     osc.stop(startTime + duration);
-
-    // Track it so we can kill it early if needed
     this._activeOscillators.push(osc);
     osc.onended = () => {
       const i = this._activeOscillators.indexOf(osc);
@@ -73,17 +81,17 @@ export class AudioManager {
     };
   }
 
-  _stopAllOscillators() {
+  _killAllOscillators() {
     for (const osc of this._activeOscillators) {
       try {
-        osc.stop();
+        osc.stop(0);
       } catch (_) {}
     }
     this._activeOscillators = [];
   }
 
   startMenuMusic() {
-    if (!this.enabled || this._menuMusicPlaying) return;
+    if (!this.musicEnabled || this._menuMusicPlaying) return;
     this._menuMusicStopped = false;
     this._ensureCtx();
     if (this.ctx.state === "suspended") {
@@ -94,7 +102,7 @@ export class AudioManager {
   }
 
   _playMelody() {
-    if (this._menuMusicStopped) return;
+    if (this._menuMusicStopped || !this.musicEnabled) return;
     this._menuMusicPlaying = true;
 
     const notes = [
@@ -138,7 +146,7 @@ export class AudioManager {
 
     this._menuMusicTimeout = setTimeout(() => {
       this._menuMusicPlaying = false;
-      if (!this._menuMusicStopped) this.startMenuMusic();
+      if (!this._menuMusicStopped && this.musicEnabled) this.startMenuMusic();
     }, total * 1000);
   }
 
@@ -147,19 +155,23 @@ export class AudioManager {
     this._menuMusicPlaying = false;
     clearTimeout(this._menuMusicTimeout);
     this._menuMusicTimeout = null;
-    this._stopAllOscillators(); // kill scheduled notes immediately
+    this._killAllOscillators();
   }
 
   eatDot() {
     this._beep(880, 0.04, "square", 0.04);
   }
-
   eatPellet() {
     this._beep(200, 0.25, "sawtooth", 0.07);
   }
-
   eatGhost() {
     this._beep(600, 0.18, "triangle", 0.08);
+  }
+  powerUp() {
+    this._beep(1000, 0.12, "sine", 0.05);
+  }
+  pause() {
+    this._beep(440, 0.08, "sine", 0.04);
   }
 
   death() {
@@ -172,13 +184,5 @@ export class AudioManager {
     this._beep(523, 0.1, "square", 0.06);
     setTimeout(() => this._beep(659, 0.1, "square", 0.06), 120);
     setTimeout(() => this._beep(784, 0.2, "square", 0.06), 240);
-  }
-
-  powerUp() {
-    this._beep(1000, 0.12, "sine", 0.05);
-  }
-
-  pause() {
-    this._beep(440, 0.08, "sine", 0.04);
   }
 }
