@@ -127,7 +127,7 @@ export class Monster {
 
   update(maze, player, frameCount) {
     const ts = this.tileSize;
-    const spd = 2; // MUST be integer that divides tileSize (20) — never change
+    const spd = 1; // MUST be integer that divides tileSize (20) — never change
 
     // Respawn countdown
     if (this.eaten) {
