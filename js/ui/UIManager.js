@@ -5,7 +5,12 @@ export class UIManager {
     this.livesEl = document.getElementById("livesDisplay");
     this.overlayEl = document.getElementById("overlayMsg");
     this.hsEl = document.getElementById("hsDisplay");
+
     this._overlayTimeout = null;
+
+    // Animated score counter
+    this._displayedScore = 0;
+    this._targetScore = 0;
   }
 
   showScreen(id) {
@@ -16,14 +21,27 @@ export class UIManager {
   }
 
   updateHUD(score, level, lives) {
-    this.scoreEl.textContent = score;
+    this._targetScore = score;
     this.levelEl.textContent = level;
+
     const pac = (alive) => `
       <svg class="life-icon" viewBox="0 0 20 20">
         <circle cx="10" cy="10" r="9" fill="${alive ? "#ffe600" : "#2a2a2a"}"/>
         <polygon points="10,10 19,6 19,14" fill="${alive ? "#000" : "#1a1a1a"}"/>
       </svg>`;
     this.livesEl.innerHTML = [0, 1, 2].map((i) => pac(i < lives)).join("");
+  }
+
+  // Call every frame to tick score up smoothly
+  tickScore() {
+    if (this._displayedScore < this._targetScore) {
+      const diff = this._targetScore - this._displayedScore;
+      this._displayedScore += Math.max(1, Math.floor(diff / 6));
+      if (this._displayedScore > this._targetScore) {
+        this._displayedScore = this._targetScore;
+      }
+      this.scoreEl.textContent = this._displayedScore;
+    }
   }
 
   showOverlay(text, duration = 1200) {
