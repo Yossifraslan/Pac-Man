@@ -1,11 +1,12 @@
 export class PowerUpManager {
   constructor() {
-    // Only these 4 trigger on pellet eat — shield/life are too powerful for random
+    // Random power-ups that trigger on pellet eat
     this.types = [
       { id: "speed", label: "⚡ SPEED BOOST!", color: "#00ff00" },
       { id: "slow", label: "☆ GHOSTS SLOWED!", color: "#9b59b6" },
       { id: "double", label: "2× DOUBLE POINTS!", color: "#ffd700" },
       { id: "freeze", label: "❄ GHOSTS FROZEN!", color: "#00bfff" },
+      { id: "shield", label: "🛡️ SHIELD ACTIVE!", color: "#00ffae" },
     ];
   }
 
@@ -20,39 +21,50 @@ export class PowerUpManager {
 
     switch (id) {
       case "speed":
-        player.speedBoostTimer = 360;
+        // Speed boost for player
+        player.speedBoostTimer = 360; // 6 seconds at 60fps
         showDelayed("⚡ SPEED BOOST!");
         break;
 
       case "slow":
-        monsters.forEach((m) => (m.speed = Math.max(m.speed * 0.5, 0.5)));
+        // Ghosts move very slowly (every other frame)
+        monsters.forEach((m) => {
+          if (!m.eaten) {
+            m._slowTimer = 300; // 5 seconds at 60fps
+          }
+        });
         showDelayed("☆ GHOSTS SLOWED!");
-        setTimeout(
-          () => monsters.forEach((m) => (m.speed = Math.min(m.speed * 2, 4))),
-          5000,
-        );
         break;
 
       case "double":
-        player.doublePointTimer = 600;
+        // Double points for 10 seconds
+        player.doublePointTimer = 600; // 10 seconds at 60fps
         showDelayed("2× DOUBLE POINTS!");
         break;
 
       case "freeze":
+        // Ghosts freeze in place (stay as normal ghosts, not scared)
         monsters.forEach((m) => {
-          m._savedSpeed = m.speed;
-          m.speed = 0;
+          if (!m.eaten) {
+            m._frozenTimer = 180; // 3 seconds at 60fps
+          }
         });
         showDelayed("❄ GHOSTS FROZEN!");
-        setTimeout(() => {
-          monsters.forEach((m) => {
-            if (m._savedSpeed !== undefined) {
-              m.speed = m._savedSpeed;
-              m._savedSpeed = undefined;
-            }
-          });
-        }, 3000);
         break;
+
+      case "shield":
+        // Shield: blocks hits for 15 seconds without affecting ghosts initially
+        // When a ghost hits shield, that ghost becomes scared
+        const shieldDuration = 900; // 15 seconds at 60fps
+        player.shield = true;
+        player.shieldTimer = shieldDuration;
+        showDelayed("🛡️ SHIELD ACTIVE!");
+        break;
+
+      case "extralife":
+        // Extra life
+        showDelayed("❤️ EXTRA LIFE!");
+        return 1; // Return 1 to add a life
     }
     return 0;
   }
