@@ -1,5 +1,5 @@
 export class Monster {
-  constructor(maze, tileSize, gridX, gridY, behavior, color, speed) {
+  constructor(maze, tileSize, gridX, gridY, behavior, color) {
     this.tileSize = tileSize;
     this.pixelX = gridX * tileSize;
     this.pixelY = gridY * tileSize;
@@ -7,7 +7,6 @@ export class Monster {
     this.gridY = gridY;
     this.homeX = gridX;
     this.homeY = gridY;
-
     this.behavior = behavior;
     this.color = color;
     this.dir = "up";
@@ -17,6 +16,17 @@ export class Monster {
     this.eaten = false;
     this.respawnTimer = 0;
     this._patrolTarget = null;
+
+    // Release system
+    // Waiting in ghost house — bob up and down until released
+    this.releaseDelay = 0;
+    this._bobOffset = 0;
+    this._bobDir = 1;
+
+    // Power-up timers
+    this._frozenTimer = 0;  // Freeze effect — ghost stays in place
+    this._slowTimer = 0;    // Slow effect — ghost moves very slowly
+    this._shieldTimer = 0;  // Shield effect (from previous — now used for scared effect)
   }
 
   isAligned() {
@@ -129,6 +139,14 @@ export class Monster {
     const ts = this.tileSize;
     const spd = 1; // MUST be integer that divides tileSize (20) — never change
 
+    // Release system — bob up and down until released
+    if (this.releaseDelay > 0) {
+      this.releaseDelay--;
+      this._bobOffset += this._bobDir * 0.4;
+      if (Math.abs(this._bobOffset) > 5) this._bobDir *= -1;
+      return;
+    }
+
     // Respawn countdown
     if (this.eaten) {
       this.respawnTimer--;
@@ -149,6 +167,12 @@ export class Monster {
       if (this.frightenedTimer <= 0) this.frightened = false;
     }
 
+    // Freeze effect — don't move if frozen
+    if (this._frozenTimer > 0) {
+      this._frozenTimer--;
+      return;
+    }
+
     // Direction decisions ONLY when exactly on a tile
     if (this.isAligned()) {
       const col = this.pixelX / ts; // guaranteed integer when aligned
@@ -164,11 +188,18 @@ export class Monster {
       }
     }
 
+    // Apply slow effect — only move every other frame
+    let moveSpeed = spd;
+    if (this._slowTimer > 0) {
+      this._slowTimer--;
+      if (frameCount % 2 !== 0) moveSpeed = 0; // Skip movement every other frame
+    }
+
     // Move — no wall check needed here because direction was validated above
-    if (this.dir === "up") this.pixelY -= spd;
-    if (this.dir === "down") this.pixelY += spd;
-    if (this.dir === "left") this.pixelX -= spd;
-    if (this.dir === "right") this.pixelX += spd;
+    if (this.dir === "up") this.pixelY -= moveSpeed;
+    if (this.dir === "down") this.pixelY += moveSpeed;
+    if (this.dir === "left") this.pixelX -= moveSpeed;
+    if (this.dir === "right") this.pixelX += moveSpeed;
 
     // Hard clamp — never leave the map
     this.pixelX = Math.max(0, Math.min(this.pixelX, (maze.width - 1) * ts));
@@ -177,10 +208,10 @@ export class Monster {
 
   draw(ctx) {
     if (this.eaten) return;
-
     const ts = this.tileSize;
     const cx = this.pixelX + ts / 2;
-    const cy = this.pixelY + ts / 2;
+    const cy =
+      this.pixelY + ts / 2 + (this.releaseDelay > 0 ? this._bobOffset : 0);
     const r = ts / 2 - 1;
 
     let color = this.color;
