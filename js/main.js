@@ -66,7 +66,7 @@ function validateMaze(m) {
 }
 
 function spawnMonsters(m, lvl) {
-  const cfg = LEVEL_CONFIG[lvl - 1] || LEVEL_CONFIG[LEVEL_CONFIG.length - 1];
+  const cfg = LEVEL_CONFIG[Math.min(lvl - 1, LEVEL_CONFIG.length - 1)];
   const count = cfg.ghosts;
   const behaviors = ["chaser", "ambusher", "predictive", "patroller"];
   const colors = [
@@ -80,28 +80,59 @@ function spawnMonsters(m, lvl) {
     "#ff6600",
   ];
 
-  const open = [];
+  // Find red zone tiles (ghost house - value 2) and nearby path tiles
+  const redZoneTiles = [];
+  const centerTiles = [];
   for (let y = 0; y < m.height; y++) {
     for (let x = 0; x < m.width; x++) {
       const cell = m.grid[y][x];
-      if (cell === 1 || cell === 3) {
-        const dist =
-          Math.abs(x - m.playerStart.x) + Math.abs(y - m.playerStart.y);
-        if (dist > 6) open.push({ x, y, dist });
+      if (cell === 2) {
+        // Red zone (ghost house)
+        redZoneTiles.push({ x, y });
+      } else if (cell !== 0) {
+        // Nearby path tiles
+        const dist = Math.abs(x - m.centerCol) + Math.abs(y - m.centerRow);
+        if (dist <= 5) centerTiles.push({ x, y, dist });
       }
     }
   }
-  open.sort((a, b) => b.dist - a.dist);
-  const step = Math.max(1, Math.floor(open.length / count));
-  const spawns = Array.from(
-    { length: count },
-    (_, i) => open[(i * step) % open.length] || open[0],
-  );
+  centerTiles.sort((a, b) => a.dist - b.dist);
 
-  return spawns.map(
-    (sp, i) =>
-      new Monster(m, 20, sp.x, sp.y, behaviors[i % 4], colors[i % 8], 1),
-  );
+  // Fallback if no center tiles found
+  const fallback = { x: m.centerCol, y: m.centerRow };
+
+  return Array.from({ length: count }, (_, i) => {
+    const color = colors[i % 8];
+    
+    // First 4 ghosts (red, pink, cyan, orange) spawn in red zone; others in nearby tiles
+    let sp;
+    if (i < 4) {
+      // First 4 ghosts spawn in red zone
+      sp = redZoneTiles[i % Math.max(redZoneTiles.length, 1)] || fallback;
+    } else {
+      // Extra ghosts spawn in nearby path tiles
+      sp = centerTiles[i % Math.max(centerTiles.length, 1)] || fallback;
+    }
+    
+    const monster = new Monster(
+      m,
+      20,
+      sp.x,
+      sp.y,
+      behaviors[i % 4],
+      color,
+    );
+
+    // First ghost releases after 2s, then one every 3s
+    // Orange (#ffa500) releases at same time as cyan (earlier than default)
+    if (color === "#ffa500") {
+      monster.releaseDelay = 480; // Release with cyan at 8s
+    } else {
+      monster.releaseDelay = 120 + i * 180; // 120=2s, 180=3s at 60fps
+    }
+
+    return monster;
+  });
 }
 
 function addPopup(text, x, y) {
@@ -219,7 +250,13 @@ function update() {
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist < 20 * 0.65) {
-      if (m.frightened) {
+      if (player.shield && player.shieldTimer > 0) {
+        // Shield blocks the hit — make this ghost scared and keep shield active
+        m.frightened = true;
+        m.frightenedTimer = 600; // Ghost scared for 10 seconds after hitting shield
+        ui.showOverlay("SHIELD BLOCKED!", 800);
+      } else if (m.frightened || m._frozenTimer > 0) {
+        // Eat ghost if scared OR frozen
         m.eaten = true;
         m.respawnTimer = 180;
         const pts = player.doublePointTimer > 0 ? 400 : 200;
@@ -228,9 +265,6 @@ function update() {
         // Popup at ghost position
         addPopup("+" + pts, m.pixelX + 10, m.pixelY);
         ui.updateHUD(score, level, lives);
-      } else if (player.shield) {
-        player.shield = false;
-        ui.showOverlay("SHIELD BLOCKED!", 800);
       } else {
         handleDeath();
         return;
@@ -267,10 +301,11 @@ function handleDeath() {
       player.velX = 0;
       player.velY = 0;
       player.shield = false;
+      player.shieldTimer = 0;
       player.dying = false;
       player.triggerSpawn();
 
-      monsters.forEach((m) => {
+      monsters.forEach((m, i) => {
         m.pixelX = m.homeX * ts;
         m.pixelY = m.homeY * ts;
         m.gridX = m.homeX;
@@ -281,6 +316,9 @@ function handleDeath() {
         m.dir = "up";
         m._frozenTimer = 0;
         m._slowTimer = 0;
+        m._shieldTimer = 0;
+        // Reset release delays so monsters spawn one by one again
+        m.releaseDelay = 120 + i * 180;
       });
 
       gameActive = true;
