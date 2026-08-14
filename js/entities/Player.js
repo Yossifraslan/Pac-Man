@@ -15,6 +15,7 @@ export class Player {
     this.mouthDir = 1;
 
     this.shield = false;
+    this.shieldTimer = 0;
     this.speedBoostTimer = 0;
     this.doublePointTimer = 0;
 
@@ -128,8 +129,11 @@ export class Player {
     }
 
     if (this.velX !== 0 || this.velY !== 0) {
-      const mx = this.velX > 0 ? spd : this.velX < 0 ? -spd : 0;
-      const my = this.velY > 0 ? spd : this.velY < 0 ? -spd : 0;
+      // Apply speed boost if active (use 4 instead of 3 to maintain alignment)
+      // Base speed 2, boosted speed 4 (2x) — both divide evenly into tile size 20
+      const boostedSpd = this.speedBoostTimer > 0 ? 4 : spd;
+      const mx = this.velX > 0 ? boostedSpd : this.velX < 0 ? -boostedSpd : 0;
+      const my = this.velY > 0 ? boostedSpd : this.velY < 0 ? -boostedSpd : 0;
       this.x += mx;
       this.y += my;
     }
@@ -147,6 +151,11 @@ export class Player {
     }
 
     if (this.speedBoostTimer > 0) this.speedBoostTimer--;
+    if (this.shieldTimer > 0) {
+      this.shieldTimer--;
+      // Disable shield when timer expires
+      if (this.shieldTimer <= 0) this.shield = false;
+    }
     if (this.doublePointTimer > 0) this.doublePointTimer--;
   }
 
