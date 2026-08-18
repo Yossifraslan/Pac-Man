@@ -7,6 +7,7 @@ export class PowerUpManager {
       { id: "double", label: "2× DOUBLE POINTS!", color: "#ffd700" },
       { id: "freeze", label: "❄ GHOSTS FROZEN!", color: "#00bfff" },
       { id: "shield", label: "🛡️ SHIELD ACTIVE!", color: "#00ffae" },
+      { id: "extralife", label: "❤️ EXTRA LIFE!", color: "#ff4d4d" },
     ];
   }
 
@@ -46,7 +47,7 @@ export class PowerUpManager {
         // Ghosts freeze in place (stay as normal ghosts, not scared)
         monsters.forEach((m) => {
           if (!m.eaten) {
-            m._frozenTimer = 180; // 3 seconds at 60fps
+            m._frozenTimer = 420; // 7 seconds at 60fps
           }
         });
         showDelayed("❄ GHOSTS FROZEN!");
