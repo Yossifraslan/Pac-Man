@@ -67,7 +67,8 @@ function validateMaze(m) {
 
 function spawnMonsters(m, lvl) {
   const cfg = LEVEL_CONFIG[Math.min(lvl - 1, LEVEL_CONFIG.length - 1)];
-  const count = cfg.ghosts;
+  const maxGhosts = lvl >= 10 ? 6 : 4;
+  const count = Math.min(cfg.ghosts, maxGhosts);
   const behaviors = ["chaser", "ambusher", "predictive", "patroller"];
   const colors = [
     "#ff4d4d",
@@ -170,6 +171,16 @@ input.onPause(() => {
   togglePause();
 });
 
+function returnToMenu() {
+  gameActive = false;
+  paused = false;
+  const panel = document.getElementById("pausePanel");
+  if (panel) panel.classList.remove("active");
+  ui.hideOverlay();
+  ui.showScreen("menuScreen");
+  audio.startMenuMusic();
+}
+
 function togglePause() {
   paused = !paused;
   const panel = document.getElementById("pausePanel");
@@ -186,6 +197,7 @@ function setupPausePanel() {
   const musicBtn = document.getElementById("musicToggleBtn");
   const sfxBtn = document.getElementById("sfxToggleBtn");
   const resumeBtn = document.getElementById("resumeBtn");
+  const mainMenuBtn = document.getElementById("mainMenuBtn");
 
   musicBtn.classList.add("active-on");
   sfxBtn.classList.add("active-on");
@@ -207,6 +219,7 @@ function setupPausePanel() {
   };
 
   resumeBtn.onclick = () => togglePause();
+  mainMenuBtn.onclick = () => returnToMenu();
 }
 
 function update() {
@@ -238,7 +251,11 @@ function update() {
     const dur = frightenDuration(level);
     monsters.forEach((m) => m.setFrightened(dur));
     const pu = powerUpMgr.random();
-    powerUpMgr.apply(pu.id, player, monsters, ui, audio);
+    const lifeAwarded = powerUpMgr.apply(pu.id, player, monsters, ui, audio);
+    if (lifeAwarded > 0) {
+      lives += lifeAwarded;
+      ui.updateHUD(score, level, lives);
+    }
   }
 
   for (const m of monsters) {
@@ -386,11 +403,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("startBtn").onclick = () => newGame(unlocked());
   document.getElementById("retryBtn").onclick = () => newGame(1);
-  document.getElementById("menuBtn").onclick = () => {
-    gameActive = false;
-    ui.showScreen("menuScreen");
-    audio.startMenuMusic();
-  };
+  document.getElementById("menuBtn").onclick = () => returnToMenu();
   document.getElementById("howtoBtn").onclick = () =>
     ui.showScreen("howtoScreen");
   document.getElementById("howtoBackBtn").onclick = () =>
@@ -427,3 +440,4 @@ window.addEventListener("DOMContentLoaded", () => {
     { once: true },
   );
 });
+
