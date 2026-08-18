@@ -660,3 +660,27 @@ footer {
   background: var(--yellow);
   color: #000;
 }
+
+.pause-menu-btn {
+  background: transparent;
+  border: 2px solid var(--green);
+  color: var(--green);
+  width: 260px;
+  padding: 14px;
+  font-family: var(--font-h);
+  font-size: 0.55rem;
+  letter-spacing: 2px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 4px;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.pause-menu-btn:hover {
+  background: var(--green);
+  color: #000;
+  border-color: var(--green);
+}
