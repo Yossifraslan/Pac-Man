@@ -29,7 +29,11 @@ export class UIManager {
         <circle cx="10" cy="10" r="9" fill="${alive ? "#ffe600" : "#2a2a2a"}"/>
         <polygon points="10,10 19,6 19,14" fill="${alive ? "#000" : "#1a1a1a"}"/>
       </svg>`;
-    this.livesEl.innerHTML = [0, 1, 2].map((i) => pac(i < lives)).join("");
+
+    const totalLives = Math.max(0, lives);
+    this.livesEl.innerHTML = Array.from({ length: totalLives }, (_, i) =>
+      pac(i < lives),
+    ).join("");
   }
 
   // Call every frame to tick score up smoothly
