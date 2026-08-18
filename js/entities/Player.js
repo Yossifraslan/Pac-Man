@@ -92,6 +92,34 @@ export class Player {
     return this._tileOpen(maze, nc, nr);
   }
 
+  _stepToward(maze, value, delta, axis) {
+    let nextValue = value;
+    const dir = delta === 0 ? 0 : Math.sign(delta);
+    if (dir === 0) return nextValue;
+
+    for (let i = 0; i < Math.abs(delta); i++) {
+      const candidate = nextValue + dir;
+
+      if (axis === "x") {
+        const currentCol = Math.floor(nextValue / this.tileSize);
+        const nextCol = Math.floor(candidate / this.tileSize);
+        const row = Math.floor(this.y / this.tileSize);
+        const wouldCrossWall = nextCol !== currentCol && !this._tileOpen(maze, nextCol, row);
+        if (wouldCrossWall) break;
+      } else {
+        const currentRow = Math.floor(nextValue / this.tileSize);
+        const nextRow = Math.floor(candidate / this.tileSize);
+        const col = Math.floor(this.x / this.tileSize);
+        const wouldCrossWall = nextRow !== currentRow && !this._tileOpen(maze, col, nextRow);
+        if (wouldCrossWall) break;
+      }
+
+      nextValue = candidate;
+    }
+
+    return nextValue;
+  }
+
   update(maze) {
     if (this.dying || this.spawning) {
       if (this.dying) {
@@ -125,23 +153,43 @@ export class Player {
       ) {
         this.velX = 0;
         this.velY = 0;
+        this.queuedVelX = 0;
+        this.queuedVelY = 0;
       }
     }
 
+    const previousX = this.x;
+    const previousY = this.y;
+
     if (this.velX !== 0 || this.velY !== 0) {
-      // Apply speed boost if active (use 4 instead of 3 to maintain alignment)
-      // Base speed 2, boosted speed 4 (2x) — both divide evenly into tile size 20
       const boostedSpd = this.speedBoostTimer > 0 ? 4 : spd;
       const mx = this.velX > 0 ? boostedSpd : this.velX < 0 ? -boostedSpd : 0;
       const my = this.velY > 0 ? boostedSpd : this.velY < 0 ? -boostedSpd : 0;
-      this.x += mx;
-      this.y += my;
+
+      const nextX = this._stepToward(maze, this.x, mx, "x");
+      const nextY = this._stepToward(maze, this.y, my, "y");
+
+      this.x = nextX;
+      this.y = nextY;
+    }
+
+    const cellX = Math.floor(this.x / this.tileSize);
+    const cellY = Math.floor(this.y / this.tileSize);
+    if (!this._tileOpen(maze, cellX, cellY)) {
+      this.x = previousX;
+      this.y = previousY;
+      this.velX = 0;
+      this.velY = 0;
+      this.queuedVelX = 0;
+      this.queuedVelY = 0;
     }
 
     const W = maze.width * this.tileSize;
     if (this.x < 0) this.x = W - this.tileSize;
     if (this.x >= W) this.x = 0;
 
+    this.gridX = Math.floor(this.x / this.tileSize);
+    this.gridY = Math.floor(this.y / this.tileSize);
     this.pixelX = this.x;
     this.pixelY = this.y;
 
