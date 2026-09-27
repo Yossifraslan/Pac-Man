@@ -2,7 +2,7 @@
 
 ### Introduction
 
-A browser-based Pac-Man clone built with plain HTML, CSS, and JavaScript. It includes a menu flow, multiple maze levels, AI-controlled ghosts, score tracking, power-ups, sound, and local high-score persistence.
+A browser-based Pac-Man built with plain HTML, CSS, and JavaScript. It includes a menu flow, multiple maze levels, AI-controlled ghosts, score tracking, power-ups, sound, and local high-score persistence.
 
 ### Tech Stack
 
